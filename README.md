@@ -1,5 +1,5 @@
 # Sycalib
-This repository contains the library called sycalib that dynamically decides the core affinity of system calls. CAIOS aims to enhance the network I/O performance on many-core systems while providing application transparency. Main features of CAIOS can be summarized as follows:
+This repository contains the library called sycalib that dynamically decides the core affinity of system calls. sycalib aims to enhance the network I/O performance on many-core systems while providing application transparency. Main features of sycalib can be summarized as follows:
 
 - sycalib overrides the legacy system call library and hooks the network I/O system calls
 - The system call context is separate from application contexts
