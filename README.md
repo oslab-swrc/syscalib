@@ -11,4 +11,4 @@ This repository contains the library called sycalib that dynamically decides the
 - sycalib does not require any modifications of existing applications and the Linux kernel.
 
 ## Getting Started
-We plan to release the first version of sycalib in early 2018.
+We plan to release the first version of sycalib in early 2019.
