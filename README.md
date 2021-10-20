@@ -13,6 +13,8 @@ This repository contains the library called sycalib that dynamically decides the
 - The core affinity of the system call contexts is dynamically decided by considering current loads, cache layout, and I/O bus.
 - sycalib does not require any modifications of existing applications and the Linux kernel
 
+## Three Different Core Partitioning Policies
+
 ### Single-socket Core Partitioning
 
 Limits cores that execute block and network I/O system calls to the NUMA node closest to the relevant I/O devices.
