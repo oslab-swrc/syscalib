@@ -1,5 +1,11 @@
 # Sycalib
 
+
+## license
+
+GNU General Public License version 2 (GPLv2)
+
+
 ## Introduction
 
  As the number of cores equipped in a computing node increases, it is more expected that a large number of cores can elevate not only scalability of computation but performance of network I/O. However, scalability issue on many-core processor systems has been constantly raised. Sharing common data structures between cores causes high locking and cache coherency overheads which are the main factors in scalability degradation. Entering kernel mode is required when network I/O is performed by invoking network I / O related system calls. However, if context switching occurs on the same core, it causes cache pollution and TLB (Traslation Lookaside Buffer) contamination. Many studies have been conducted to improve scalability and network I/O performance on many-core systems through modifying system software, operating system, or providing additional API layer which requires application modification. We propose sycalib that can improve network I/O performance and scalability through assigning network I/O tasks to optimal cores using core affinity without modifying existing programs.
@@ -41,10 +47,6 @@ Considers the locality of data buffers importantly and potentially allows more c
   - LD_PRELOAD the shared library in .bashrc file
 - If you use the syscalib for application
   - LD_PRELOAD the shared library when you the run application
-
-## license
-
-GNU General Public License version 2 (GPLv2)
 
 ## Papers
 
