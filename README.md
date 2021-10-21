@@ -13,18 +13,14 @@ This repository contains the library called sycalib that dynamically decides the
 - The core affinity of the system call contexts is dynamically decided by considering current loads, cache layout, and I/O bus.
 - sycalib does not require any modifications of existing applications and the Linux kernel
 
-## Three Different Core Partitioning Policies
-
 ### Single-socket Core Partitioning
 
 Limits cores that execute block and network I/O system calls to the NUMA node closest to the relevant I/O devices.
 
 
-
 ### Cross-socket Core Partitioning
 
 Is similar to the Single-NUMA-node policy but allows system calls to utilize a NUMA node other than the one closest to the I/O devices if its utilization is higher than the threshold.
-
 
 
 ### Per-socket core partitioning
@@ -33,6 +29,18 @@ Assigns I/O system calls to cores belonging to the NUMA node where the correspon
 
 Considers the locality of data buffers importantly and potentially allows more core utilization for system call contexts than the Single-NUMA-node policy.
 
+
+## How to run
+
+- Build core partitioning kernel module and shared library using make and build script.
+- Insert a kernel module.
+  - Parameters
+    - irq_net : network device irq numbers
+    - irq_blk : block device irq numbers
+- If you use the syscalib for global system
+  - LD_PRELOAD the shared library in .bashrc file
+- If you use the syscalib for application
+  - LD_PRELOAD the shared library when you the run application
 
 ## license
 
