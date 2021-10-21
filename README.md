@@ -38,7 +38,7 @@ Considers the locality of data buffers importantly and potentially allows more c
 
 ## How to run
 
-- Build core partitioning kernel module(simple_proc.ko) and shared library(CPART_SINGLE.so, CPART_CROSS.so, CPART_PER.so) using make and build script.
+- Build core partitioning kernel module(simple_proc.ko) and shared library(CPART_SINGLE.so, CPART_CROSS.so, CPART_PER.so) using Makefile and build script.
 - Insert a kernel module.
   - Parameters
     - irq_net : network device irq numbers
