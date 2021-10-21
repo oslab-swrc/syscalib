@@ -50,7 +50,7 @@ Considers the locality of data buffers importantly and potentially allows more c
 
 ## Results
 
-(images)
+![image-20211021081409045](cp_result.png)
 
 ## Requirement list + Developer guide
 function list and required function list
