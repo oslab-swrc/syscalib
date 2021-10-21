@@ -50,7 +50,7 @@ Considers the locality of data buffers importantly and potentially allows more c
 
 ## Results
 
-![image-20211021081409045](syscalib/cp_result.png)
+![](https://github.com/oslab-swrc/syscalib/blob/master/cross.png)
 
 ## Requirement list + Developer guide
 function list and required function list
