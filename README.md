@@ -22,19 +22,22 @@ This repository contains the library called sycalib that dynamically decides the
 ### Single-socket Core Partitioning
 
 Limits cores that execute block and network I/O system calls to the NUMA node closest to the relevant I/O devices.
-<img src="https://github.com/oslab-swrc/syscalib/blob/master/single.png"  width="400" height="300"/>
+
+<img src="https://github.com/oslab-swrc/syscalib/blob/master/single.png"  width="600" height="300"/>
 
 ### Cross-socket Core Partitioning
 
 Is similar to the Single-NUMA-node policy but allows system calls to utilize a NUMA node other than the one closest to the I/O devices if its utilization is higher than the threshold.
-<img src="https://github.com/oslab-swrc/syscalib/blob/master/cross.png"  width="400" height="300"/>
+
+<img src="https://github.com/oslab-swrc/syscalib/blob/master/cross.png"  width="600" height="300"/>
 
 ### Per-socket core partitioning
 
 Assigns I/O system calls to cores belonging to the NUMA node where the corresponding application is running.
 
 Considers the locality of data buffers importantly and potentially allows more core utilization for system call contexts than the Single-NUMA-node policy.
-<img src="https://github.com/oslab-swrc/syscalib/blob/master/per.png"  width="400" height="300"/>
+
+<img src="https://github.com/oslab-swrc/syscalib/blob/master/per.png"  width="600" height="300"/>
 
 ## How to run
 
