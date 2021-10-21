@@ -51,7 +51,7 @@ Considers the locality of data buffers importantly and potentially allows more c
 ## Results
 
 
-## Requirement list + Developer guid
+## Requirement list + Developer guide
 
 
 
