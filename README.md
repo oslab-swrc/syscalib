@@ -50,8 +50,8 @@ Considers the locality of data buffers importantly and potentially allows more c
 
 ## Results
 
-![](https://github.com/oslab-swrc/syscalib/blob/master/result_cp.png){: width="200" height="200"}
-
+<img src="https://github.com/oslab-swrc/syscalib/blob/master/result_cp.png"  width="200" height="200"/>
+                                                                                                     
 ## Requirement list + Developer guide
 function list and required function list
 
