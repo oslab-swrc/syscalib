@@ -22,19 +22,19 @@ This repository contains the library called sycalib that dynamically decides the
 ### Single-socket Core Partitioning
 
 Limits cores that execute block and network I/O system calls to the NUMA node closest to the relevant I/O devices.
-
+(image)
 
 ### Cross-socket Core Partitioning
 
 Is similar to the Single-NUMA-node policy but allows system calls to utilize a NUMA node other than the one closest to the I/O devices if its utilization is higher than the threshold.
-
+(image)
 
 ### Per-socket core partitioning
 
 Assigns I/O system calls to cores belonging to the NUMA node where the corresponding application is running.
 
 Considers the locality of data buffers importantly and potentially allows more core utilization for system call contexts than the Single-NUMA-node policy.
-
+(image)
 
 ## How to run
 
@@ -47,6 +47,13 @@ Considers the locality of data buffers importantly and potentially allows more c
   - LD_PRELOAD the shared library in .bashrc file
 - If you use the syscalib for application
   - LD_PRELOAD the shared library when you the run application
+
+## Results
+
+
+## Requirement list + Developer guid
+
+
 
 ## Papers
 
