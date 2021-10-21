@@ -34,7 +34,7 @@ Is similar to the Single-NUMA-node policy but allows system calls to utilize a N
 Assigns I/O system calls to cores belonging to the NUMA node where the corresponding application is running.
 
 Considers the locality of data buffers importantly and potentially allows more core utilization for system call contexts than the Single-NUMA-node policy.
-![](https://github.com/oslab-swrc/syscalib/blob/master/per_cp.png)
+![](https://github.com/oslab-swrc/syscalib/blob/master/per.png)
 
 ## How to run
 
@@ -50,7 +50,7 @@ Considers the locality of data buffers importantly and potentially allows more c
 
 ## Results
 
-![](https://github.com/oslab-swrc/syscalib/blob/master/result_cp.png)
+![](https://github.com/oslab-swrc/syscalib/blob/master/result_cp.png){width:200, height:200}
 
 ## Requirement list + Developer guide
 function list and required function list
