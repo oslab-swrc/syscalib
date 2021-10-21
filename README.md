@@ -53,7 +53,7 @@ Considers the locality of data buffers importantly and potentially allows more c
 
 ## Results
 
-<img src="https://github.com/oslab-swrc/syscalib/blob/master/result_cp.png"  width="300" height="300"/>
+
                                                                                                      
 ## Requirement list + Developer guide
 function list and required function list
