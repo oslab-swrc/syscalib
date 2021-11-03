@@ -61,11 +61,22 @@ Considers the locality of data buffers importantly and potentially allows more c
 ~~~
 
 ## Results
-
+/proc/KU/dynamic has your corepartitioning informantion
+~~~
+ $ cat /proc/KU/dynamic
+~~~
 
                                                                                                      
-## Requirement list + Developer guide
-function list and required function list
+## requirement list
+Core partitioning currently supports many system calls used for network and file I/O.
+If there are additional system calls used for I/O, they need to be added.
+Of course, the added system call must follow the existing operating context of Linux, and must be operated through the syscall thread of core partitioning.
+
+
+Below are the system calls currently supported by core partitioning.
+---
+*select(), socket(), bind(), listen(), accept(), connect(), send(), recv(), setsocketopt(), getsocketopt(), close(), read(), write(), poll(), ppoll(), sendto(), sendmsg(), recvmsg(), recvfrom(), getsockname(), getpeername(), shutdown(), epoll_wait(), epoll_ctl(), epoll_create(), socketpari(), open(), openat(), open64(), openat64(), creat(), lseek(), stat(), lseek64(), stat64(), fopen(), fork(), clone()* 
+---
 
 
 ## Papers
