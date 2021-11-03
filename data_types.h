@@ -1,3 +1,6 @@
+/*SPDX-License-Identifier: GPL-2.0-only*/
+/*Copyright (c) 2021 Konkuk University SSLAB*/
+
 #ifndef __DATA_TYPES_H__
 #define __DATA_TYPES_H__
 #include <string.h>
@@ -286,6 +289,10 @@ typedef struct _thread_info{
 thread_info *header ;
 thread_info *tail ;
 unsigned int thr_num ;
+
+thread_info *pool_header ;
+thread_info *pool_tail ;
+unsigned int pool_thr_num ;
 
 sem_t sem_aq;
 sem_t sem_rq;

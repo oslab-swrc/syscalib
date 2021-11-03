@@ -1,3 +1,6 @@
+/*SPDX-License-Identifier: GPL-2.0-only*/
+/*Copyright (c) 2021 Konkuk University SSLAB*/
+
 #include "ld_preload.h"
 #include <sys/time.h>
 #include <signal.h>
@@ -8,7 +11,7 @@
 #define F_GETFL		3	/* get file->f_flags */
 #define F_SETFL		4	/* set file->f_flags */
 
-#define DYNAMIC_THREAD_SYSCALLCOUNT	50
+#define DYNAMIC_THREAD_SYSCALLCOUNT	10
 
 #endif
 
@@ -19,6 +22,10 @@ static void end(void) __attribute__((destructor));            // destructor
 static void wrap_init(void)
 {
     if(fdtable_init() == -1){
+        exit(-EINVAL);
+    }
+
+    if(fdtable_init_pool() == -1){
         exit(-EINVAL);
     }
 
@@ -58,6 +65,7 @@ static void wrap_init(void)
     original_epoll_create = dlsym(RTLD_NEXT, "epoll_create");
     original_socketpair = dlsym(RTLD_NEXT, "socketpair");
     original_open = dlsym(RTLD_NEXT, "open");
+    original_creat = dlsym(RTLD_NEXT, "creat");
     original_open64 = dlsym(RTLD_NEXT, "open64");
     original_openat = dlsym(RTLD_NEXT, "openat");
     original_lseek = dlsym(RTLD_NEXT, "lseek");
@@ -74,46 +82,8 @@ static void end(void){
     thread_info* tmp = header->next ;
     thread_info* tmp2;
 
-    args_data send_data = {1, 0};
-    retval_data recv_data = {1, 0, 0};
-    retval_data* recv_data_p;
-    recv_data_p = &recv_data;
-
-    while(tmp!=tail){
-        tmp2 = tmp->next;
-
-        send_data.request_type = TYPE_CLOSE;
-        send_data.fildes = fildes;
-
-        CPART_send_to_thread(send_data, tmp);
-        CPART_recv_from_thread(recv_data_p, tmp);
-
-        pthread_rwlock_wrlock(&table_rwlock);
-        pthread_join(tmp->p_thread, (void **)&status);          // do we need to wait for thread?
-
-        prev_node->next = next_node;
-        next_node->prev = prev_node;
-        tmp ->next == NULL;
-        tmp ->prev == NULL;
-
-        sem_destroy(&(tmp->sem_thread));
-        sem_destroy(&(tmp->empty));
-        sem_destroy(&(tmp->empty2));
-        sem_destroy(&(tmp->full));
-        sem_destroy(&(tmp->full2));
-        memset(tmp->message, 0, sizeof(args_data));      // memset - cglee
-        free(tmp->message);
-        memset(tmp, 0, sizeof(args_data));              // memset - cglee
-        free(tmp);
-        thr_num--;
-
-        pthread_rwlock_unlock(&table_rwlock);
-
-        tmp = tmp2;
-    }
-
-    free(header);
-    free(tail);
+    fdtable_destroy();
+    fdtable_destroy_pool();
 
     pthread_rwlock_destroy(&table_rwlock);
 }
@@ -447,7 +417,6 @@ void *syscall_thread()
     else{
 //        sem_post(&(sock->sem_thread));
     }
-
     return NULL;
 }
 
@@ -505,6 +474,8 @@ void *ku_select()
 
 int close(int fildes)
 {
+    int ret_flag;
+    int ret; //
     thread_info* tmp;
     args_data send_data = {1, 0};
     retval_data recv_data = {1, 0, 0};
@@ -525,26 +496,122 @@ int close(int fildes)
         return (*original_close)(fildes);
     }
     else{
-/*
+        /*
         send_data.request_type = TYPE_CLOSE;
         send_data.fildes = fildes;
 
         CPART_send_to_thread(send_data, tmp);
         CPART_recv_from_thread(recv_data_p, tmp);
-
+*/
+         /*
         pthread_rwlock_wrlock(&table_rwlock);
         pthread_join(tmp->p_thread, (void **)&status);          // do we need to wait for thread?
         fdtable_delete(fildes);
+
         pthread_rwlock_unlock(&table_rwlock);
 */
-
         pthread_rwlock_wrlock(&table_rwlock);
-        fdtable_entry_delete(fildes);
-        pthread_rwlock_unlock(&table_rwlock);
+        //fdtable_entry_delete(socket);
+        ret_flag = fdtable_to_pool(fildes);
+        if(ret_flag == 1){
+            thread_info *next_node = tmp->next;
+            thread_info *prev_node = tmp->prev;
 
+            prev_node->next = next_node;
+            next_node->prev = prev_node;
+/*
+            send_data.request_type = TYPE_CLOSE;
+
+            CPART_send_to_thread(send_data, tmp);
+            CPART_recv_from_thread(recv_data_p, tmp);
+*/
+            ret = (*original_close)(fildes);
+
+            sem_destroy(&(tmp->sem_thread));
+            sem_destroy(&(tmp->empty));
+            sem_destroy(&(tmp->empty2));
+            sem_destroy(&(tmp->full));
+            sem_destroy(&(tmp->full2));
+            memset(tmp->message, 0, sizeof(args_data));      // memset - cglee
+            free(tmp->message);
+            //pthread_kill(tmp->p_thread, SIGTERM);
+            memset(tmp, 0, sizeof(args_data));              // memset - cglee
+            free(tmp);
+
+            pthread_rwlock_unlock(&table_rwlock);
+            return ret;
+        }
+        pthread_rwlock_unlock(&table_rwlock);
 
         return (*original_close)(fildes);
     }
+}
+
+int creat(const char *pathname, mode_t mode){
+    int thr_id;
+    int num = 1;
+    thread_info *tmp;
+    int ret = 0;
+    args_data send_data = {1, 0};
+    retval_data recv_data = {1, 0, 0};
+    retval_data* recv_data_p;
+    recv_data_p = &recv_data;
+    int func_errno = errno;
+
+    int thread_flag = 0;
+
+
+    if(strcmp(pathname, "/dev/tty")==0){
+        return (*original_creat)(pathname, mode);
+    }
+
+    errno = 0;
+    ret = (*original_creat)(pathname, mode);
+    if(errno != 0) func_errno = errno;
+    else errno = func_errno;
+    if(ret < 3) return ret;
+
+//    sem_wait(&sem_fdtable); //disable for rwlock
+    pthread_rwlock_wrlock(&table_rwlock);
+
+
+    if(fdtable_get_by_fd_all(ret) != NULL || ret < 0){
+//        sem_post(&sem_fdtable); //disable for rwlock
+        pthread_rwlock_unlock(&table_rwlock);
+        errno = func_errno;
+        return ret;
+    }
+    else if(fdtable_getnumber() < MAXTHREAD){
+        tmp = fdtable_from_pool();
+        if(tmp == NULL){
+            tmp  = fdtable_add();
+            thread_flag = 1;
+        }
+
+//        sem_post(&sem_fdtable);                 // disable for fdtable_forked() //disable for rwlock
+        pthread_rwlock_unlock(&table_rwlock);
+//        sem_wait(&(tmp->sem_thread));
+        tmp->pid = getpid();
+        tmp->NetorFile = 1;
+        if(thread_flag == 1){
+            thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL); // need to?
+            pthread_detach(tmp->p_thread);
+        }
+//        sem_wait(&(tmp->sem_thread));
+        tmp->thr_fd = ret;
+//        sem_post(&(tmp->sem_thread));
+        if(thr_id < 0){
+            perror("pthread_create error");
+        }
+    }
+    else{
+//        sem_post(&sem_fdtable); //disable for rwlock
+        pthread_rwlock_unlock(&table_rwlock);
+        errno = func_errno;
+        return ret;
+    }
+    errno = func_errno;
+    return ret;
 }
 
 
@@ -560,6 +627,8 @@ int socket(int domain, int type, int protocol)
     thread_info *tmp;
     int ret = 0;
     int flag = 0;
+    int thread_flag = 0;
+
     int func_errno = errno;
     original_socket = dlsym(RTLD_NEXT, "socket");
 
@@ -588,12 +657,20 @@ int socket(int domain, int type, int protocol)
     }
 
     else if(fdtable_getnumber() < MAXTHREAD){
-        tmp = fdtable_add();
+        tmp = fdtable_from_pool();
+        if(tmp == NULL){
+            tmp  = fdtable_add();
+            thread_flag = 1;
+        }
+
 //        sem_post(&sem_fdtable);                 // disable for fdtable_forked() //disable for rwlock
         pthread_rwlock_unlock(&table_rwlock);
         tmp->pid = getpid();
         tmp->NetorFile = 0;
-        thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL);
+        if(thread_flag == 1){
+            thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL); // need to?
+            pthread_detach(tmp->p_thread);
+        }
 //        sem_wait(&(tmp->sem_thread));
         tmp->thr_fd = ret;
 //        sem_post(&(tmp->sem_thread));
@@ -625,6 +702,8 @@ int open(const char *path, int flags, mode_t mode)
 	recv_data_p = &recv_data;
     int func_errno = errno;
 
+    int thread_flag = 0;
+
 
 	if(strcmp(path, "/dev/tty")==0){
         return (*original_open)(path, flags, mode);
@@ -647,13 +726,21 @@ int open(const char *path, int flags, mode_t mode)
         return ret;
     }
     else if(fdtable_getnumber() < MAXTHREAD){
-        tmp = fdtable_add();
+        tmp = fdtable_from_pool();
+        if(tmp == NULL){
+            tmp  = fdtable_add();
+            thread_flag = 1;
+        }
+
 //        sem_post(&sem_fdtable);                 // disable for fdtable_forked() //disable for rwlock
         pthread_rwlock_unlock(&table_rwlock);
 //        sem_wait(&(tmp->sem_thread));
         tmp->pid = getpid();
         tmp->NetorFile = 1;
-        thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL);
+        if(thread_flag == 1){
+            thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL); // need to?
+            pthread_detach(tmp->p_thread);
+        }
 //        sem_wait(&(tmp->sem_thread));
         tmp->thr_fd = ret;
 //        sem_post(&(tmp->sem_thread));
@@ -681,7 +768,7 @@ off_t openat(int dirfd, const char *pathname, int flags, mode_t mode){
 
 	int ret = 0;
     int func_errno = errno;
-
+    int thread_flag = 0;
 	thread_info *tmp;
 
     errno = 0;
@@ -699,7 +786,12 @@ off_t openat(int dirfd, const char *pathname, int flags, mode_t mode){
         return ret;
     }
     else if(ret >0 && (fdtable_getnumber() < MAXTHREAD)){
-        tmp = fdtable_add();
+        tmp = fdtable_from_pool();
+        if(tmp == NULL){
+            tmp  = fdtable_add();
+            thread_flag = 1;
+        }
+
 //        sem_post(&sem_fdtable);                 // disable for fdtable_forked() //disable for rwlock
         pthread_rwlock_unlock(&table_rwlock);
 //        sem_wait(&(tmp->sem_thread));           // tmp disable
@@ -707,7 +799,10 @@ off_t openat(int dirfd, const char *pathname, int flags, mode_t mode){
 #ifdef __FILEIO__
         tmp->NetorFile = 1;
 #endif
-        thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL);
+        if(thread_flag == 1){
+            thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL); // need to?
+            pthread_detach(tmp->p_thread);
+        }
 //        sem_wait(&(tmp->sem_thread));
         tmp->thr_fd = ret;
 //        sem_post(&(tmp->sem_thread));
@@ -883,7 +978,6 @@ ssize_t write(int fildes, const void *buf, size_t nbyte)
 		send_data.write.buf = buf;
 		send_data.write.nbyte = nbyte;
 
-
 		CPART_send_to_thread(send_data, tmp);
 		CPART_recv_from_thread(recv_data_p, tmp);
 
@@ -1015,6 +1109,7 @@ int accept(int socket, struct sockaddr* addr, socklen_t *addrlen)
             pthread_rwlock_unlock(&table_rwlock);
             tmp2->NetorFile = 0;
             thr_id = pthread_create(&(tmp2->p_thread), NULL, syscall_thread, NULL);
+            pthread_detach(tmp2->p_thread);
             tmp2->thr_fd = recv_data_p->return_value;
             if (thr_id < 0) {
                 perror("pthread_create error");
@@ -1286,6 +1381,7 @@ int epoll_create(int size){
         tmp->NetorFile = 0;
 
         thr_id = pthread_create(&(tmp->p_thread), NULL, syscall_thread, NULL);
+        pthread_detach(tmp->p_thread);
         tmp->thr_fd = ret;
         if(thr_id < 0){
             perror("pthread_create error");
@@ -1330,6 +1426,7 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *events){
     }
     else
     {
+
         send_data.request_type = TYPE_EPOLL_CTL;
         send_data.epoll_ctl.epfd = epfd;
         send_data.epoll_ctl.op = op;
@@ -1457,7 +1554,6 @@ ssize_t sendmsg(int socket, const struct msghdr *msg, int flags)
         send_data.sendmsg.socket = socket;
         send_data.sendmsg.msg = msg;
         send_data.sendmsg.flags = flags;
-
 
         CPART_send_to_thread(send_data, tmp);
         CPART_recv_from_thread(recv_data_p, tmp);
@@ -1619,10 +1715,6 @@ int getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
         CPART_send_to_thread(send_data, tmp);
 
         CPART_recv_from_thread(recv_data_p, tmp);
-        CPART_recv_from_thread(recv_data_p, tmp);
-        CPART_recv_from_thread(recv_data_p, tmp);
-        CPART_recv_from_thread(recv_data_p, tmp);
-        CPART_recv_from_thread(recv_data_p, tmp);
         if(recv_data_p->thr_errno != 0) errno = recv_data_p->thr_errno;
         else errno = func_errno;
         return recv_data.return_value;
@@ -1632,6 +1724,8 @@ int getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
 
 int shutdown(int socket, int flags)
 {
+    int ret_flag;
+    int ret; //
     thread_info* tmp;
     args_data send_data = {1, 0};
     retval_data recv_data = {1, 0, 0};
@@ -1652,20 +1746,35 @@ int shutdown(int socket, int flags)
         return (*original_shutdown)(socket, flags);
     }
     else{
-/*
-        send_data.request_type = TYPE_SHUTDOWN;
-        send_data.send.socket = socket;
-        send_data.send.flags= flags;
-
-        CPART_send_to_thread(send_data, tmp);
-        CPART_recv_from_thread(recv_data_p, tmp);
-
         pthread_rwlock_wrlock(&table_rwlock);
-        pthread_join(tmp->p_thread, (void **)&status);          // do we need to wait for thread?
-*/
+        //fdtable_entry_delete(socket);
+        ret_flag = fdtable_to_pool(socket);
+        if(ret_flag == 1){
+            thread_info *next_node = tmp->next;
+            thread_info *prev_node = tmp->prev;
 
-        pthread_rwlock_wrlock(&table_rwlock);
-        fdtable_entry_delete(socket);
+            prev_node->next = next_node;
+            next_node->prev = prev_node;
+
+            sem_destroy(&(tmp->sem_thread));
+            sem_destroy(&(tmp->empty));
+            sem_destroy(&(tmp->empty2));
+            sem_destroy(&(tmp->full));
+            sem_destroy(&(tmp->full2));
+            memset(tmp->message, 0, sizeof(args_data));      // memset - cglee
+            free(tmp->message);
+            //pthread_kill(tmp->p_thread, SIGTERM);
+            memset(tmp, 0, sizeof(args_data));              // memset - cglee
+            free(tmp);
+
+            ret = (*original_shutdown)(socket, flags);
+
+            thr_num--;
+            pthread_rwlock_unlock(&table_rwlock);
+
+            return ret;
+        }
+
         pthread_rwlock_unlock(&table_rwlock);
 
         return (*original_shutdown)(socket, flags);
@@ -1680,6 +1789,8 @@ int clone(int (*fn)(void *arg), void *child_stack, int flags, void* arg, ...)
     int return_pid_t;
     int (*original_clone)(int (*fn)(void *arg), void* child_stack, int flags, void* arg);
 
+    pool_thr_num = pool_thr_num*2;
+    thr_num = thr_num*2;
 
     original_clone = dlsym(RTLD_NEXT, "clone");
 
@@ -1687,8 +1798,9 @@ int clone(int (*fn)(void *arg), void *child_stack, int flags, void* arg, ...)
 
     switch(return_pid_t){
         case 0:
-            pthread_rwlock_init(&table_rwlock, NULL);
             fdtable_init();
+            fdtable_init_pool();
+            pthread_rwlock_init(&table_rwlock, NULL);
             break;
         case -1:
             perror("error fork\n");
@@ -1703,6 +1815,8 @@ int clone(int (*fn)(void *arg), void *child_stack, int flags, void* arg, ...)
 
 pid_t fork()
 {
+    pool_thr_num = pool_thr_num*2;
+    thr_num = thr_num*2;
     pid_t return_pid_t;
 
     return_pid_t = (*original_fork)();
@@ -1710,9 +1824,9 @@ pid_t fork()
     switch(return_pid_t){
         case 0:
             fdtable_init();
+            fdtable_init_pool();
             pthread_rwlock_init(&table_rwlock, NULL);
-
-            //fdtable_forked(syscall_thread, ku_select);
+//            fdtable_forked(syscall_thread, ku_select);
             break;
         case -1:
             perror("error fork\n");

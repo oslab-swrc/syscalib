@@ -1,3 +1,6 @@
+/*SPDX-License-Identifier: GPL-2.0-only*/
+/*Copyright (c) 2021 Konkuk University SSLAB*/
+
 #ifndef __FDTABLE_H__
 #define __FDTABLE_H__
 
@@ -17,10 +20,7 @@
 
 #define QKEY (key_t)0xFFFF
 #define MKEY (key_t)0xFF00
-
-/**/
-/*variables*/
-/**/
+#define POOL_LIMIT 16
 
 int fdtable_init();
 void fdtable_destroy();
@@ -28,7 +28,14 @@ thread_info* fdtable_add();
 int fdtable_delete(int fd);
 int fdtable_entry_delete(int fd);
 
-//thread_info* fdtable_traversal(thread_info* head);
+int fdtable_init_pool();
+void fdtable_destroy_pool();
+thread_info* fdtable_add_pool();
+int fdtable_delete_pool(int fd);
+int fdtable_entry_delete_pool(int fd);
+
+int fdtable_to_pool(int fd);
+thread_info* fdtable_from_pool();
 
 thread_info* fdtable_get_by_fd_all(int fd);
 #ifdef __FILEIO__

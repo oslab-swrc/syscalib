@@ -1,3 +1,6 @@
+/*SPDX-License-Identifier: GPL-2.0-only*/
+/*Copyright (c) 2021 Konkuk University SSLAB*/
+
 #ifndef __IPC_H__
 #define __IPC_H__
 

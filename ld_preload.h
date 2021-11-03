@@ -1,3 +1,6 @@
+/*SPDX-License-Identifier: GPL-2.0-only*/
+/*Copyright (c) 2021 Konkuk University SSLAB*/
+
 #define _GNU_SOURCE
 
 #ifndef __LD_PRELOAD_H__
@@ -23,19 +26,15 @@
 
 #define QKEY (key_t)0xFFFF
 #define MKEY (key_t)0xFF00
-#define MAXTHREAD 65535
+#define MAXTHREAD 32
 #define ONE_NODE 10
 #define TWO_NODE 20
-#define PROC_MAX_LEN 1024
-#define INTEL_CPU 20
+#define PROC_MAX_LEN 32
+#define INTEL_CPU 192
 #define THRESHOLD 50
+#define CORES_PER_SOCKET 24
+#define NUMBER_OF_SOCKET 8
 
-#define MAX_CPUS 20
-#define NUMBER_OF_SOCKETS 2
-#define CORES_PER_SOCKET 10
-
-//static void wrap_init(void) __attribute__((constructor));     // constructor
-//static void end(void) __attribute__((destructor));            // destructor
 void *ku_socket();
 
 //-****** Declare Original Function Variable***************-/
@@ -71,6 +70,7 @@ off_t (*original_stat)(const char *path, struct stat *buf);
 off_t (*original_openat64)(int dirfd, const char *pathname, int flags, mode_t mode);
 off_t (*original_lseek64)(int fd, off_t offset, int whence);
 off_t (*original_stat64)(const char *path, struct stat *buf);
+int (*original_creat)(const char *pathname, mode_t mode);
 int (*original_open64)(const char *path, int flags, mode_t mode);
 int (*original_open)(const char *path, int flags, mode_t mode);
 int (*original_fopen)(const char *path, const char* mode);
@@ -92,16 +92,21 @@ void *syscall_thread();
 /* for dynamic system call affinity */
 int file_start;
 int net_end;
-/* for dynamic system call affinity */
 
+int blk_start_per[NUMBER_OF_SOCKET];
+int blk_end_per[NUMBER_OF_SOCKET];
+int net_end_per[NUMBER_OF_SOCKET];
+int net_start_per[NUMBER_OF_SOCKET];
+
+int sockets_count[2];    // 0: blk  1: net
+
+/* for dynamic system call affinity */
 thread_info* sock_thread;
 thread_info* open_thread;
-//int thr_num = 0;
-//int cur_thr = 0;
 
 cpu_set_t mask;
 
-//sem_t sem_fdtable;
 pthread_rwlock_t table_rwlock;
+pthread_rwlock_t pool_rwlock;
 
 #endif

@@ -1,9 +1,6 @@
-/*
- * affinity.c
- *
- *  Created on: Jan 2, 2018
- *      Author: root
- */
+/*SPDX-License-Identifier: GPL-2.0-only*/
+/*Copyright (c) 2021 Konkuk University SSLAB*/
+
 #include "ld_preload.h"
 
 int get_app_cpu(){
@@ -23,7 +20,7 @@ int get_app_cpu(){
 		while(token != NULL){
 			token = strtok(NULL," ");
 			if(i == 38) break;
-			i++; 			// i == 38 unreachable - cglee
+			i++;
 		}
 	}
 	cpu = atoi(token);
@@ -40,7 +37,7 @@ int set_affinity_within(boolean NetorFile){
 	}else {
 		set_cpu(1, NetorFile);
 	}
-	return syscall_cpu ;	// changyu-lee : syscall_cpu always return 0 ?
+	return syscall_cpu ;
 }
 
 void set_cpu(boolean socket, boolean NetorFile)
@@ -51,23 +48,10 @@ void set_cpu(boolean socket, boolean NetorFile)
 	int sum_total = 0;
 	int minimum = 0;
 
-
-    char socket_number[1][10];
-    int soc_num;
-    char net_start_per_c[NUMBER_OF_SOCKETS][10];
-    char net_end_per_c[NUMBER_OF_SOCKETS][10];
-    char blk_start_per_c[NUMBER_OF_SOCKETS][10];
-    char blk_end_per_c[NUMBER_OF_SOCKETS][10];
-
-    int net_start_per[NUMBER_OF_SOCKETS];
-    int net_end_per[NUMBER_OF_SOCKETS];
-    int blk_start_per[NUMBER_OF_SOCKETS];
-    int blk_end_per[NUMBER_OF_SOCKETS];
-
-
-    char total_filepath[PROC_MAX_LEN], total_buf[INTEL_CPU][PROC_MAX_LEN];  //changyu-lee : total_buf[PROC_MAX_LEN][INTEL_CPU] -> [INTEL_CPU][PROC_MAX_LEN]
+	char total_filepath[PROC_MAX_LEN], total_buf[INTEL_CPU][PROC_MAX_LEN];  //changyu-lee : total_buf[PROC_MAX_LEN][INTEL_CPU] -> [INTEL_CPU][PROC_MAX_LEN]
     char dynamic_filepath[PROC_MAX_LEN], dynamic_buf[INTEL_CPU][PROC_MAX_LEN];
-    char core_start_end[NUMBER_OF_SOCKETS][10];        // 0 for net 1 for blk
+    char core_start_end[2][10];        // 0 for net 1 for blk
+    char core_start_end_per[16][10];
 	FILE *ft = NULL ;
     FILE *dynamic = NULL ;
 
@@ -80,8 +64,7 @@ void set_cpu(boolean socket, boolean NetorFile)
 	if(!ft || !dynamic){
 		printf("total fopen failed \n");
 	}
-	int counter = 0 ;
-    for(counter = 0 ; counter < MAX_CPUS ; counter++){
+    for(int counter = 0 ; counter < INTEL_CPU ; counter++){
         fgets(total_buf[counter], PROC_MAX_LEN-1, ft);
     }
 #ifdef SINGLE
@@ -89,44 +72,43 @@ void set_cpu(boolean socket, boolean NetorFile)
     fgets(core_start_end[1], 9, dynamic);
     net_end = atoi(core_start_end[0]);
     file_start = atoi(core_start_end[1]);
+
 #endif
 
 #ifdef CROSS
-    fgets(socket_number[0], 9, dynamic);
-    soc_num = atoi(socket_number[0]);
-    for(i = 0 ; i < NUMBER_OF_SOCKETS ; i++){
-        fgets(net_start_per_c[i], 9, dynamic);
-        fgets(net_end_per_c[i], 9, dynamic);
-        fgets(blk_start_per_c[i], 9, dynamic);
-        fgets(blk_end_per_c[i], 9, dynamic);
-    }
-    for(i = 0 ; i < NUMBER_OF_SOCKETS ; i++){
-        net_start_per[i] = atoi(net_start_per_c[i]);
-        net_end_per[i] = atoi(net_end_per_c[i]);
-        blk_start_per[i] = atoi(blk_start_per_c[i]);
-        blk_end_per[i] = atoi(blk_end_per_c[i]);
-    }
+    fgets(sockets_count[0], 9, dynamic);   //blk
+    fgets(sockets_count[1], 9, dynamic);   //net
 
+    int m = 0;
+    k = 0;
+    for(m = 0 ; m < 16 ; m++){
+        fgets(core_start_end_per[m], 9, dynamic);
+        if(m%2 == 0){
+            net_end_per[k] = atoi(core_start_end_per[m]);
+        }
+        else{
+            blk_start_per[k] = atoi(core_start_end_per[m]);
+            k++;
+        }
+    }
 #endif
 
 #ifdef PER
-    for(i = 0 ; i < NUMBER_OF_SOCKETS ; i++){
-        fgets(net_start_per_c[i], 9, dynamic);
-        fgets(net_end_per_c[i], 9, dynamic);
-        fgets(blk_start_per_c[i], 9, dynamic);
-        fgets(blk_end_per_c[i], 9, dynamic);
-    }
-    for(i = 0 ; i < NUMBER_OF_SOCKETS ; i++){
-        net_start_per[i] = atoi(net_start_per_c[i]);
-        net_end_per[i] = atoi(net_end_per_c[i]);
-        blk_start_per[i] = atoi(blk_start_per_c[i]);
-        blk_end_per[i] = atoi(blk_end_per_c[i]);
+    int m = 0;
+    k = 0;
+    for(m = 0 ; m < 16 ; m++){
+        fgets(core_start_end_per[m], 9, dynamic);
+        if(m%2 == 0){
+            net_end_per[k] = atoi(core_start_end_per[m]);
+        }
+        else{
+            blk_start_per[k] = atoi(core_start_end_per[m]);
+            k++;
+        }
     }
 #endif
-
     fclose(ft);
     fclose(dynamic);
-
 
 #ifdef __FILEIO__
 #ifdef SINGLE
@@ -134,67 +116,83 @@ void set_cpu(boolean socket, boolean NetorFile)
 		minimum = net_end+1;
 
 		CPU_ZERO(&mask);
-		for(net_cpu = net_end+1; net_cpu < file_start; net_cpu++){
+		for(net_cpu = net_end+1; net_cpu < CORES_PER_SOCKET; net_cpu++){
 			CPU_SET(net_cpu, &mask);
 		}
+
+		//CPU_SET(net_cpu, &mask);
 		sched_setaffinity(0, sizeof(cpu_set_t), &mask);
 	}
 	else{/* FileIO*/
 		minimum = file_start;
 
 		CPU_ZERO(&mask);
-		for(file_cpu = file_start; file_cpu < MAX_CPUS; file_cpu++){
+		for(file_cpu = file_start; file_cpu < 192; file_cpu++){
 			CPU_SET(file_cpu, &mask);
 		}
+
+		//CPU_SET(file_cpu, &mask);
 		sched_setaffinity(0, sizeof(cpu_set_t), &mask);
 	}
 #endif
 
 #ifdef CROSS
-	if(NetorFile == 0){ /* NetIO */
-		CPU_ZERO(&mask);
-        for(i = 1 ; i <= soc_num ; i ++){
-            k = NUMBER_OF_SOCKETS - i;
-            for(n = net_end_per[k]+1 ; n < blk_start_per[k] ; n++){
-                CPU_SET(n, &mask);
-            }
-        }
+	//int current_core = sched_getaffinity(0, sizeof(cpu_set_t), &mask);
+	int current_core = sched_getcpu();
+	int current_node;
+	int socketcount = 0;
+	current_node = current_core/15;
+    if(NetorFile == 0){ /* NetIO */
+            minimum = net_end_per[0]+1;
 
-		sched_setaffinity(0, sizeof(cpu_set_t), &mask);
-	}
-	else{/* FileIO*/
-		CPU_ZERO(&mask);
-		for(i = 1 ; i <= soc_num ; i ++){
-            k = NUMBER_OF_SOCKETS - i;
-            for(n = blk_start_per[k] ; n <= blk_end_per[k] ; n++){
-                CPU_SET(n, &mask);
+            CPU_ZERO(&mask);
+            for(i = 0 ; i < sockets_count[1]; i++){
+                for(k = net_end_per[i] ; k < (i*23)+23 ; k++){
+                    CPU_SET(k, &mask);
+                }
             }
-        }
-		sched_setaffinity(0, sizeof(cpu_set_t), &mask);
-	}
 
+            sched_setaffinity(0, sizeof(cpu_set_t), &mask);
+        }
+        else{/* FileIO*/
+            minimum = blk_start_per[current_node];
+
+            CPU_ZERO(&mask);
+            for(i = 0 ; i < sockets_count[0]; i++){
+                for(k = blk_start_per[7-i] ; k < (i*23)+23 ; k++){
+                    CPU_SET(k, &mask);
+                }
+            }
+            //CPU_SET(file_cpu, &mask);
+            sched_setaffinity(0, sizeof(cpu_set_t), &mask);
+        }
 #endif
 
 #ifdef PER
-	int currnet_core = sched_getcpu();
-	int current_node = (current_core / CORES_PER_SOCKET);
+	int current_core = sched_getcpu();
+	int current_node;
+	current_node = current_core/NUMBER_OF_SOCKET;
+    if(NetorFile == 0){ /* NetIO */
+            minimum = net_end_per[current_node]+1;
 
-	if(NetorFile == 0){ /* NetIO */
-		CPU_ZERO(&mask);
+            CPU_ZERO(&mask);
+            for(net_cpu = net_end_per[current_node]+1; net_cpu < blk_start_per[current_node]; net_cpu++){
+                CPU_SET(net_cpu, &mask);
+            }
+            sched_setaffinity(0, sizeof(cpu_set_t), &mask);
+        }
+        else{/* FileIO*/
+            minimum = blk_start_per[current_node];
 
-        for(i = net_end_per[current_node]+1 ; i < blk_start_per[current_node]; i++){
-            CPU_SET(i, &mask);
+            CPU_ZERO(&mask);
+            for(file_cpu = blk_start_per[current_node]; file_cpu < ((current_node*CORES_PER_SOCKET)+CORES_PER_SOCKET-1); file_cpu++){
+                CPU_SET(file_cpu, &mask);
+            }
+            //CPU_SET(file_cpu, &mask);
+            sched_setaffinity(0, sizeof(cpu_set_t), &mask);
         }
-		sched_setaffinity(0, sizeof(cpu_set_t), &mask);
-	}
-	else{/* FileIO*/
-		CPU_ZERO(&mask);
-		for(i = blk_start_per[current_node] ; i < blk_end_per[current_node]; i++){
-		    CPU_SET(i, &mask);
-        }
-		sched_setaffinity(0, sizeof(cpu_set_t), &mask);
-	}
 #endif
+
 
 #endif
 #ifndef __FILEIO__
@@ -219,4 +217,5 @@ void set_cpu(boolean socket, boolean NetorFile)
 	}
 	*/
 #endif
+
 }
