@@ -46,6 +46,9 @@ Considers the locality of data buffers importantly and potentially allows more c
  $ sh build.sh
 ~~~
 - Insert a kernel module.
+~~~
+ $ sudo insmod {simple_proc_PATH}/simple_proc.ko irq_net={NET_QUEUES} irq_blk={BLK_QUEUES}
+~~~
   - Parameters
     - irq_net : network device irq numbers
     - irq_blk : block device irq numbers
@@ -53,6 +56,9 @@ Considers the locality of data buffers importantly and potentially allows more c
   - LD_PRELOAD the shared library in .bashrc file
 - If you use the syscalib for application
   - LD_PRELOAD the shared library when you the run application
+~~~
+ $ LD_PRELOAD={COREPARTITIONING_PATH}/CPART_{SINGLE|CROSS|PER} ./{your application}
+~~~
 
 ## Results
 
