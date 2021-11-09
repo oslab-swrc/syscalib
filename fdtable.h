@@ -1,4 +1,4 @@
-/*SPDX-License-Identifier: GPL-2.0-only*/
+/*SPDX-License-Identifier: GPL-2.0- WITH Linux-syscall-note*/
 /*Copyright (c) 2021 Konkuk University SSLAB*/
 
 #ifndef __FDTABLE_H__
